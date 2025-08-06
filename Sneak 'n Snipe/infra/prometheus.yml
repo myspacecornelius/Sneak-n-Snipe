@@ -1,0 +1,88 @@
+# Prometheus configuration for SneakerSniper
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'sneakersniper-monitor'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alerts/*.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway metrics
+  - job_name: 'api-gateway'
+    static_configs:
+      - targets: ['api:8000']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Monitor Service metrics
+  - job_name: 'monitor-service'
+    static_configs:
+      - targets: ['monitor:8001']
+    metrics_path: /metrics
+    scrape_interval: 5s
+
+  # Checkout Service metrics
+  - job_name: 'checkout-service'
+    static_configs:
+      - targets: ['checkout:8002']
+    metrics_path: /metrics
+    scrape_interval: 10s
+
+  # Proxy Manager metrics
+  - job_name: 'proxy-manager'
+    static_configs:
+      - targets: ['proxy:8003']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Celery metrics via Flower
+  - job_name: 'celery'
+    static_configs:
+      - targets: ['flower:5555']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Redis exporter
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis-exporter:9121']
+    scrape_interval: 30s
+
+  # PostgreSQL exporter
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+    scrape_interval: 30s
+
+  # Node exporter for system metrics
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+# Global metrics to track
+# - sneakersniper_monitors_active
+# - sneakersniper_monitors_poll_latency_ms
+# - sneakersniper_checkout_tasks_total
+# - sneakersniper_checkout_success_rate
+# - sneakersniper_proxy_health_score
+# - sneakersniper_proxy_cost_dollars
+# - sneakersniper_captcha_solve_time_seconds
+# - sneakersniper_api_request_duration_seconds
+# - sneakersniper_websocket_connections_active

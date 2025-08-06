@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SneakerSniper Bot Engine</title>
+    <link rel="stylesheet" href="/index.css" />
+    <script type="importmap">
+      {
+        "imports": {
+          "marked": "https://esm.sh/marked@^15.0.8"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>SneakerSniper Bot Engine</h1>
+        <div id="metrics-container" class="metrics-bar">
+          <div class="metric-item">
+            <span class="metric-label">Active Monitors</span>
+            <span class="metric-value">0</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Running Tasks</span>
+            <span class="metric-value">0</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Success Rate</span>
+            <span class="metric-value">0%</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Avg Latency</span>
+            <span class="metric-value">--ms</span>
+          </div>
+        </div>
+      </header>
+      
+      <div id="dashboard-container">
+        <section class="dashboard-section">
+          <h2>Active Monitors</h2>
+          <div id="monitors-container"></div>
+        </section>
+        
+        <section class="dashboard-section">
+          <h2>Checkout Tasks</h2>
+          <div id="tasks-container"></div>
+        </section>
+      </div>
+
+      <div id="chat-container">
+        <div id="chat-history"></div>
+      </div>
+      
+      <form id="prompt-form">
+        <input
+          id="prompt-input"
+          type="text"
+          placeholder="e.g., monitor jordan-1-travis-scott or run 50 checkouts"
+          aria-label="Enter command"
+          autocomplete="off"
+        />
+        <button type="submit" aria-label="Send command">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            width="24"
+            height="24"
+          >
+            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"></path>
+          </svg>
+        </button>
+      </form>
+    </main>
+    
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>

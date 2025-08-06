@@ -1,0 +1,191 @@
+version: '3.8'
+
+services:
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - api
+    networks:
+      - sneakersniper-net
+
+  # API Gateway
+  api:
+    build:
+      context: ./services/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+      - ENVIRONMENT=development
+    volumes:
+      - ./services/api:/app
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - sneakersniper-net
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Monitor Service
+  monitor:
+    build:
+      context: ./services/monitor
+      dockerfile: Dockerfile
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./services/monitor:/app
+    depends_on:
+      - redis
+    networks:
+      - sneakersniper-net
+    restart: unless-stopped
+
+  # Checkout Service
+  checkout:
+    build:
+      context: ./services/checkout
+      dockerfile: Dockerfile
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./services/checkout:/app
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - sneakersniper-net
+    deploy:
+      replicas: 3  # Multiple workers for parallel checkouts
+
+  # Celery Worker
+  worker:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+      - C_FORCE_ROOT=1
+    volumes:
+      - ./worker:/app
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - sneakersniper-net
+    command: celery -A tasks worker --loglevel=info --concurrency=10
+
+  # Celery Beat (Scheduler)
+  beat:
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+    volumes:
+      - ./worker:/app
+    depends_on:
+      - redis
+    networks:
+      - sneakersniper-net
+    command: celery -A tasks beat --loglevel=info
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - sneakersniper-net
+    command: redis-server --appendonly yes
+
+  # PostgreSQL
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=sneakersniper
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - sneakersniper-net
+
+  # Prometheus
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data:/prometheus
+    networks:
+      - sneakersniper-net
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+
+  # Grafana
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - sneakersniper-net
+
+  # Nginx (Optional - for production)
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - frontend
+      - api
+    networks:
+      - sneakersniper-net
+    profiles:
+      - production
+
+volumes:
+  redis-data:
+  postgres-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  sneakersniper-net:
+    driver: bridge
