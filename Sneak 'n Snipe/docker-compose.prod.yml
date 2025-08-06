@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  frontend:
+    environment:
+      - VITE_API_URL=http://nginx:80
+      - VITE_WS_URL=ws://nginx:80
+    command: nginx -g "daemon off;"
+
+  api:
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+      - ENVIRONMENT=production
+    restart: always
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
+
+  monitor:
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PYTHONUNBUFFERED=1
+    restart: always
+
+  checkout:
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+      - PYTHONUNBUFFERED=1
+    restart: always
+
+  worker:
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+      - C_FORCE_ROOT=1
+    restart: always
+    command: celery -A tasks worker --loglevel=info --concurrency=10
+
+  beat:
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+    restart: always
+    command: celery -A tasks beat --loglevel=info
+
+  postgres:
+    environment:
+      - POSTGRES_DB=sneakersniper
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    restart: always
+
+  grafana:
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: always

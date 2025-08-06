@@ -3,6 +3,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 import crud, models, schemas
 from database import SessionLocal, engine, Base
+from prometheus_client import Counter, generate_latest, start_http_server
+from starlette.responses import PlainTextResponse
 
 Base.metadata.create_all(bind=engine)
 
@@ -10,6 +12,11 @@ app = FastAPI(
     title="Sneak 'n Snipe API",
     description="The main API gateway for the Sneak 'n Snipe application.",
     version="0.1.0",
+)
+
+# Prometheus Metrics
+REQUEST_COUNT = Counter(
+    'http_requests_total', 'Total HTTP Requests', ['method', 'endpoint']
 )
 
 # Configure CORS
@@ -34,6 +41,12 @@ def get_db():
     finally:
         db.close()
 
+@app.middleware("http")
+async def add_process_time_header(request, call_next):
+    REQUEST_COUNT.labels(method=request.method, endpoint=request.url.path).inc()
+    response = await call_next(request)
+    return response
+
 @app.get("/")
 def read_root():
     return {"message": "Welcome to the Sneak 'n Snipe API"}
@@ -41,6 +54,10 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+@app.get("/metrics")
+def metrics():
+    return PlainTextResponse(generate_latest())
 
 @app.post("/tasks/", response_model=schemas.Task)
 def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):

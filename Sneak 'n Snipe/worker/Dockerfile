@@ -1,17 +1,15 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+FROM python:3.11-slim as builder
 
-# Set the working directory in the container
 WORKDIR /app
 
-# Copy the requirements file into the container at /app
 COPY requirements.txt .
-
-# Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the rest of the application's code from the host to the container at /app
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY . .
 
-# Run the application
 CMD ["celery", "-A", "tasks", "worker", "--loglevel=info", "--concurrency=10"]

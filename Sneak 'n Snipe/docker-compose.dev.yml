@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  frontend:
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    command: npm run dev
+
+  api:
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+      - ENVIRONMENT=development
+    volumes:
+      - ./services/api:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  monitor:
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./services/monitor:/app
+
+  checkout:
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ./services/checkout:/app
+
+  worker:
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+      - C_FORCE_ROOT=1
+    volumes:
+      - ./worker:/app
+    command: celery -A tasks worker --loglevel=info --concurrency=10
+
+  beat:
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
+    volumes:
+      - ./worker:/app
+    command: celery -A tasks beat --loglevel=info
+
+  postgres:
+    environment:
+      - POSTGRES_DB=sneakersniper
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+
+  grafana:
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources

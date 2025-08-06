@@ -8,16 +8,13 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5173:5173"
-    environment:
-      - VITE_API_URL=http://localhost:8000
-      - VITE_WS_URL=ws://localhost:8000
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     depends_on:
       - api
     networks:
       - sneakersniper-net
+    extends:
+      file: docker-compose.dev.yml
+      service: frontend
 
   # API Gateway
   api:
@@ -26,46 +23,35 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
-      - ENVIRONMENT=development
-    volumes:
-      - ./services/api:/app
+      - "8001:8001" # Metrics port
     depends_on:
       - redis
       - postgres
     networks:
       - sneakersniper-net
-    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    extends:
+      file: docker-compose.dev.yml
+      service: api
 
   # Monitor Service
   monitor:
     build:
       context: ./services/monitor
       dockerfile: Dockerfile
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - ./services/monitor:/app
     depends_on:
       - redis
     networks:
       - sneakersniper-net
     restart: unless-stopped
+    extends:
+      file: docker-compose.dev.yml
+      service: monitor
 
   # Checkout Service
   checkout:
     build:
       context: ./services/checkout
       dockerfile: Dockerfile
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
-      - PYTHONUNBUFFERED=1
-    volumes:
-      - ./services/checkout:/app
     depends_on:
       - redis
       - postgres
@@ -73,40 +59,36 @@ services:
       - sneakersniper-net
     deploy:
       replicas: 3  # Multiple workers for parallel checkouts
+    extends:
+      file: docker-compose.dev.yml
+      service: checkout
 
   # Celery Worker
   worker:
     build:
       context: ./worker
       dockerfile: Dockerfile
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
-      - C_FORCE_ROOT=1
-    volumes:
-      - ./worker:/app
     depends_on:
       - redis
       - postgres
     networks:
       - sneakersniper-net
-    command: celery -A tasks worker --loglevel=info --concurrency=10
+    extends:
+      file: docker-compose.dev.yml
+      service: worker
 
   # Celery Beat (Scheduler)
   beat:
     build:
       context: ./worker
       dockerfile: Dockerfile
-    environment:
-      - REDIS_URL=redis://redis:6379
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/sneakersniper
-    volumes:
-      - ./worker:/app
     depends_on:
       - redis
     networks:
       - sneakersniper-net
-    command: celery -A tasks beat --loglevel=info
+    extends:
+      file: docker-compose.dev.yml
+      service: beat
 
   # Redis
   redis:
@@ -117,21 +99,19 @@ services:
       - redis-data:/data
     networks:
       - sneakersniper-net
-    command: redis-server --appendonly yes
 
   # PostgreSQL
   postgres:
     image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=sneakersniper
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
     ports:
       - "5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - sneakersniper-net
+    extends:
+      file: docker-compose.dev.yml
+      service: postgres
 
   # Prometheus
   prometheus:
@@ -143,42 +123,21 @@ services:
       - prometheus-data:/prometheus
     networks:
       - sneakersniper-net
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
 
   # Grafana
   grafana:
     image: grafana/grafana:latest
     ports:
       - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_USERS_ALLOW_SIGN_UP=false
     volumes:
-      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards
-      - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
     networks:
       - sneakersniper-net
-
-  # Nginx (Optional - for production)
-  nginx:
-    image: nginx:alpine
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./infra/nginx.conf:/etc/nginx/nginx.conf
-    depends_on:
-      - frontend
-      - api
-    networks:
-      - sneakersniper-net
-    profiles:
-      - production
+    extends:
+      file: docker-compose.dev.yml
+      service: grafana
 
 volumes:
   redis-data:
