@@ -76,6 +76,25 @@ scrape_configs:
       - targets: ['node-exporter:9100']
     scrape_interval: 30s
 
+    # infra/prometheus-community.yml
+scrape_configs:
+  - job_name: 'community-metrics'
+    static_configs:
+      - targets: ['location:8001']  # Heat map activity
+      - targets: ['marketplace:8002']  # Trade volume
+      - targets: ['karma:8003']  # LACES circulation
+    
+  # Track community health
+  - job_name: 'engagement'
+    metrics_path: /metrics
+    params:
+      - daily_active_users
+      - trades_completed
+      - laces_velocity
+      - meetups_scheduled
+      - meetups_scheduled
+      - meetups_scheduled
+
 # Global metrics to track
 # - sneakersniper_monitors_active
 # - sneakersniper_monitors_poll_latency_ms
