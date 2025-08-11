@@ -148,3 +148,36 @@ volumes:
 networks:
   sneakersniper-net:
     driver: bridge
+
+    # docker-compose.community.yml
+version: '3.8'
+
+services:
+  # Rename services to reflect new purpose
+  location:  # Was monitor
+    build:
+      context: ./services/location
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - ENABLE_GEOFENCING=true
+    
+  marketplace:  # Was checkout
+    build:
+      context: ./services/marketplace
+    environment:
+      - ENABLE_ESCROW=true
+      - SAFE_ZONES_API_KEY=${SAFE_ZONES_KEY}
+    
+  karma:  # New service for LACES
+    build:
+      context: ./services/karma
+    depends_on:
+      - redis
+      - postgres
+    
+  social:  # New service for community features
+    build:
+      context: ./services/social
+    environment:
+      - ENABLE_CHAT=true
+      - ENABLE_GROUPS=true
